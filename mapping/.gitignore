@@ -1,0 +1,4 @@
+.httr-oauth
+client_secrets.json
+*.tgz
+all_data_*.txt

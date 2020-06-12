@@ -67,7 +67,7 @@ for (i in (1:ndevices)){
 # UTC time start ... 24 hours ago
 x_now <- Sys.time()
 # This is to make a run in the past
- x_now <- as.POSIXct("2020-06-11 18:00:00")
+# x_now <- as.POSIXct("2020-06-12 18:00:00")
 print(x_now)
 t_start <- floor(as.numeric(x_now) - 24 * 3600)
 # UTC time end ... now

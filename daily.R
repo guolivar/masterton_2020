@@ -25,13 +25,18 @@ library(twitteR)
 library(parallel)
 library(doParallel)
 
-setup_twitter_oauth(consumer_key = "XSAlq3HMJyH1tQlYrgnGque8F",
-                    access_token = "1144053097313886208-DIVDY1F2jqh0pNbtJFz7Nxja3It3Xt",
-                    consumer_secret = "1NOYPT7iJ3tF66NK333xcNe8mOjf15WoZGXDsjuK1jVG5dvOPJ",
-                    access_secret = "x1ffRfIUltZkHKnRPBUK8oiouhcnUCp7VHCgL4W5rEdYE")
+# Load Twitter and Google Maps secrets
+twitter_secrets <- read_delim("./secret_twitter.txt", 
+                              " ", escape_double = FALSE, trim_ws = TRUE)
+google_map_key <- read_delim("./secret_googlemaps.txt", 
+                            " ", escape_double = FALSE, trim_ws = TRUE)
+setup_twitter_oauth(consumer_key = twitter_secrets[1],
+                    access_token = twitter_secrets[2],
+                    consumer_secret = twitter_secrets[3],
+                    access_secret = twitter_secrets[4])
 
 ##### Register google's mapping key
-register_google(key = "AIzaSyACi3pNvPQTxZWx5u0nTtke598dPqdgySg")
+register_google(key = google_map_key[1])
 
 ##### Location info up to date? ####
 location_ok <- FALSE

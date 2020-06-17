@@ -25,29 +25,35 @@ library(twitteR)
 library(parallel)
 library(doParallel)
 
-# Load Twitter and Google Maps secrets
-twitter_secrets <- read_delim("./secret_twitter.txt", 
-                              " ", escape_double = FALSE, trim_ws = TRUE)
-google_map_key <- read_delim("./secret_googlemaps.txt", 
-                            " ", escape_double = FALSE, trim_ws = TRUE)
-setup_twitter_oauth(consumer_key = twitter_secrets[1],
-                    access_token = twitter_secrets[2],
-                    consumer_secret = twitter_secrets[3],
-                    access_secret = twitter_secrets[4])
 
-##### Register google's mapping key
-register_google(key = google_map_key[1])
-
+##### Some switches to control the run
+send2youtube <- FALSE
+send2FTP <- TRUE
+tweetit <- FALSE
 ##### Location info up to date? ####
-location_ok <- FALSE
-
+location_ok <- TRUE
 ##### Set the working directory DB ####
-setwd("~/repositories/masterton2020/mapping/")
+print(basepath <- path.expand("~"))
+setwd(paste0(basepath,"/repositories/masterton2020/mapping/"))
 data_path <- "./"
-##### Read the credentials file (ignored by GIT repository) ####
-# Read the secrets
+
+##### Read the secrets (these files are not part of the repo) ####
+secret_twitter <- read_delim("./secret_twitter.txt", 
+                             " ", escape_double = FALSE, trim_ws = TRUE,col_names = FALSE)
+secret_google <- read_delim("./secret_googlemaps.txt", 
+                            " ", escape_double = FALSE, trim_ws = TRUE,col_names = FALSE)
 secret_hologram <- read_delim("./secret_hologram.txt", 
                               " ", escape_double = FALSE, trim_ws = TRUE)
+
+if (tweetit){
+  setup_twitter_oauth(consumer_key = as.character(secret_twitter$X1[1]),
+                      access_token = as.character(secret_twitter$X1[2]),
+                      consumer_secret = as.character(secret_twitter$X1[3]),
+                      access_secret = as.character(secret_twitter$X1[4]))
+}
+##### Register google's mapping key
+register_google(key = as.character(secret_google$X1[1]))
+
 wanted_tag_human <- "masterton2020"
 
 # Fetch the ODIN details
@@ -72,14 +78,14 @@ for (i in (1:ndevices)){
 # UTC time start ... 24 hours ago
 x_now <- Sys.time()
 # This is to make a run in the past
-# x_now <- as.POSIXct("2020-06-12 18:00:00")
+# x_now <- as.POSIXct("2020-06-16 18:00:00")
 print(x_now)
 t_start <- floor(as.numeric(x_now) - 24 * 3600)
 # UTC time end ... now
 t_end <- floor(as.numeric(x_now))
 # Set the averaging interval
-time_avg <- '15 min'
-tavg_prefix <- '_15min_'
+time_avg <- '1 hour'
+tavg_prefix <- '_1hour_'
 # This is for the averagin
 x_start <- x_now - 25 * 3600
 
@@ -228,7 +234,7 @@ if (location_ok){
   
   # Get the basemap
   ca <- get_googlemap(c(centre_lon,centre_lat),
-                      zoom = 15,
+                      zoom = 13,
                       scale = 2)
 }
 
@@ -395,17 +401,17 @@ RCurl::ftpUpload(paste0(data_path,
                         format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
                         ".tgz"))
 
-updateStatus("Data availability from Masterton - UTC time", mediaPath = paste0(data_path,
-                                                                               'availability_',
-                                                                               format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
-                                                                               format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
-                                                                               ".png"))
-
-updateStatus("Latest time series from Masterton - UTC time", mediaPath = paste0(data_path,
-                                                                                't_series_',
-                                                                                format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
-                                                                                format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
-                                                                                ".png"))
+# updateStatus("Data availability from Masterton - UTC time", mediaPath = paste0(data_path,
+#                                                                                'availability_',
+#                                                                                format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
+#                                                                                format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
+#                                                                                ".png"))
+# 
+# updateStatus("Latest time series from Masterton - UTC time", mediaPath = paste0(data_path,
+#                                                                                 't_series_',
+#                                                                                 format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
+#                                                                                 format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
+#                                                                                 ".png"))
 
 
 
@@ -471,17 +477,17 @@ if (location_ok){
       next
     }
     valid_dates[d_slice] <- TRUE
-    surf.krig.temp <- try(autoKrige(PM2.5 ~ 1,data=c_data,new_data = grid, input_data=c_data),
-                          silent = TRUE)
-    if (inherits(surf.krig.temp,"try-error")){
-      surf.krig <- idw(PM2.5 ~ 1,newdata = grid, locations = c_data, idp = 1,na.action = na.omit)
-      surf.krig$timestamp <-d_slice
-      proj4string(surf.krig) <- CRS('+init=epsg:2193')
-    } else {
-      surf.krig <- surf.krig.temp$krige_output
-      surf.krig$timestamp <-d_slice
-      proj4string(surf.krig) <- CRS('+init=epsg:2193')
-    }
+    # surf.krig.temp <- try(autoKrige(PM2.5 ~ 1,data=c_data,new_data = grid, input_data=c_data),
+    #                       silent = TRUE)
+    # if (inherits(surf.krig.temp,"try-error")){
+    #   surf.krig <- idw(PM2.5 ~ 1,newdata = grid, locations = c_data, idp = 1,na.action = na.omit)
+    #   surf.krig$timestamp <-d_slice
+    #   proj4string(surf.krig) <- CRS('+init=epsg:2193')
+    # } else {
+    #   surf.krig <- surf.krig.temp$krige_output
+    #   surf.krig$timestamp <-d_slice
+    #   proj4string(surf.krig) <- CRS('+init=epsg:2193')
+    # }
     
     surf.idw <- idw(PM2.5 ~ 1,newdata = grid, locations = c_data, idp = 1,na.action = na.omit)
     surf.idw$timestamp <-d_slice
@@ -492,10 +498,10 @@ if (location_ok){
     proj4string(surf.idw2) <- proj4string_NZTM
     
     if (i==0){
-      to_rast.krig <- surf.krig
-      r0.krig <- rasterFromXYZ(cbind(to_rast.krig@coords,to_rast.krig@data$var1.pred))
-      crs(r0.krig) <- '+init=epsg:2193'
-      raster_cat.krig <- r0.krig
+      # to_rast.krig <- surf.krig
+      # r0.krig <- rasterFromXYZ(cbind(to_rast.krig@coords,to_rast.krig@data$var1.pred))
+      # crs(r0.krig) <- '+init=epsg:2193'
+      # raster_cat.krig <- r0.krig
       
       to_rast.idw <- surf.idw
       r0.idw <- rasterFromXYZ(cbind(surf.idw@coords,surf.idw$var1.pred))
@@ -509,11 +515,11 @@ if (location_ok){
       i <- 1
     }
     else {
-      to_rast.krig <- surf.krig
-      r0.krig <- rasterFromXYZ(cbind(to_rast.krig@coords,to_rast.krig@data$var1.pred))
-      names(r0.krig) <- as.character(all_dates[d_slice])
-      crs(r0.krig) <- '+init=epsg:2193'
-      raster_cat.krig <- addLayer(raster_cat.krig,r0.krig)
+      # to_rast.krig <- surf.krig
+      # r0.krig <- rasterFromXYZ(cbind(to_rast.krig@coords,to_rast.krig@data$var1.pred))
+      # names(r0.krig) <- as.character(all_dates[d_slice])
+      # crs(r0.krig) <- '+init=epsg:2193'
+      # raster_cat.krig <- addLayer(raster_cat.krig,r0.krig)
       
       to_rast.idw <- surf.idw
       r0.idw <- rasterFromXYZ(cbind(surf.idw@coords,surf.idw$var1.pred))
@@ -527,22 +533,22 @@ if (location_ok){
       crs(r0.idw2) <- '+init=epsg:2193'
       raster_cat.idw2<- addLayer(raster_cat.idw2,r0.idw2)
     }
-    rtpK <- rasterToPolygons(projectRaster(r0.krig,crs = "+proj=longlat +datum=WGS84"))
+    # rtpK <- rasterToPolygons(projectRaster(r0.krig,crs = "+proj=longlat +datum=WGS84"))
     rtp <- rasterToPolygons(projectRaster(r0.idw,crs = "+proj=longlat +datum=WGS84"))
     rtp2 <- rasterToPolygons(projectRaster(r0.idw2,crs = "+proj=longlat +datum=WGS84"))
     points <- data.frame(spTransform(c_data,CRS('+init=epsg:4326')))
     points$label <- substr(points$serialn,1,9)
     
     # Build the animation
-    map_out <- ggmap(ca) + geom_polygon(data = rtpK,aes(x = long, y = lat, group = group,
-                                                        fill = rep(rtpK[[1]], each = 5)),
-                                        size = 0,
-                                        alpha = 0.85) +
-      scale_fill_gradient(low="white", high="red",limits=c(0, cmax), name = "PM2.5", oob=squish) +
-      geom_point(data=points,aes(x=lon,y=lat),colour = "black", size = 3) +
-      geom_text(data=points,aes(x=lon,y=lat,label=label), hjust=0, colour = "gray") +
-      ggtitle(paste(as.character(all_dates[d_slice]+12*3600),"NZST"))
-    ggsave(filename=paste0(data_path,'autokrig/',format(all_dates[d_slice]+12*3600,format = "%Y-%m-%d %H:%M"),'.png'), plot=map_out, width=6, height=6, units = "in")
+    # map_out <- ggmap(ca) + geom_polygon(data = rtpK,aes(x = long, y = lat, group = group,
+    #                                                     fill = rep(rtpK[[1]], each = 5)),
+    #                                     size = 0,
+    #                                     alpha = 0.85) +
+    #   scale_fill_gradient(low="white", high="red",limits=c(0, cmax), name = "PM2.5", oob=squish) +
+    #   geom_point(data=points,aes(x=lon,y=lat),colour = "black", size = 3) +
+    #   geom_text(data=points,aes(x=lon,y=lat,label=label), hjust=0, colour = "gray") +
+    #   ggtitle(paste(as.character(all_dates[d_slice]+12*3600),"NZST"))
+    # ggsave(filename=paste0(data_path,'autokrig/',format(all_dates[d_slice]+12*3600,format = "%Y-%m-%d %H:%M"),'.png'), plot=map_out, width=6, height=6, units = "in")
     
     map_out <- ggmap(ca) + geom_polygon(data = rtp,aes(x = long, y = lat, group = group,
                                                        fill = rep(rtp[[1]], each = 5)),
@@ -569,75 +575,77 @@ if (location_ok){
            units = "in")
     
   }
-  save('raster_cat.krig',file = paste0(data_path,'raster_cat.krig.RData'))
+  # save('raster_cat.krig',file = paste0(data_path,'raster_cat.krig.RData'))
   save('raster_cat.idw',file = paste0(data_path,'raster_cat.idw.RData'))
   save('raster_cat.idw2',file = paste0(data_path,'raster_cat.idw2.Rdata'))
   
   print("Done with interpolating ...")
   
-  raster_cat_krig_LL <- projectRaster(raster_cat.krig,crs = "+proj=longlat +datum=WGS84")
+  # raster_cat_krig_LL <- projectRaster(raster_cat.krig,crs = "+proj=longlat +datum=WGS84")
   raster_cat_idw_LL <- projectRaster(raster_cat.idw,crs = "+proj=longlat +datum=WGS84")
   raster_cat_idw2_LL <- projectRaster(raster_cat.idw2,crs = "+proj=longlat +datum=WGS84")
-  save(list = c('raster_cat_krig_LL','raster_cat_idw_LL','raster_cat_idw2_LL'),file = paste0(data_path,"raster_odin_LL.RData"))
+  # save(list = c('raster_cat_krig_LL','raster_cat_idw_LL','raster_cat_idw2_LL'),file = paste0(data_path,"raster_odin_LL.RData"))
+  save(list = c('raster_cat_idw_LL','raster_cat_idw2_LL'),file = paste0(data_path,"raster_odin_LL.RData"))
+  
 }
 
 if (location_ok){
   print("Writing NetCDF files")
-  print("Krig")
-  # Write NetCDF files ####
-  # IDW
-  lat_dim <- unique(coordinates(raster_cat_krig_LL)[,2])
-  lon_dim <- unique(coordinates(raster_cat_krig_LL)[,1])
-  tim_dim <- all_dates[valid_dates ==1 ]
-  nc.krig <- create.nc("odin_krig.nc")
-  # Dimensions specifications
-  dim.def.nc(nc.krig, "time", unlim=TRUE)
-  dim.def.nc(nc.krig, "latitude",length(lat_dim))
-  dim.def.nc(nc.krig, "longitude",length(lon_dim))
-  # Variable specifications
-  var.def.nc(nc.krig,"time","NC_INT","time")
-  att.put.nc(nc.krig,"time","units","NC_CHAR","seconds since 1970-01-01 00:00:0.0")
-  att.put.nc(nc.krig,"time","long_name","NC_CHAR","time")
-  
-  var.def.nc(nc.krig,"latitude","NC_FLOAT","latitude")
-  att.put.nc(nc.krig,"latitude","units","NC_CHAR","degrees_north")
-  att.put.nc(nc.krig,"latitude","long_name","NC_CHAR","latitude")
-  att.put.nc(nc.krig,"latitude","standard_name","NC_CHAR","latitude")
-  
-  var.def.nc(nc.krig,"longitude","NC_FLOAT","longitude")
-  att.put.nc(nc.krig,"longitude","units","NC_CHAR","degrees_east")
-  att.put.nc(nc.krig,"longitude","long_name","NC_CHAR","longitude")
-  att.put.nc(nc.krig,"longitude","standard_name","NC_CHAR","longitude")
-  
-  var.def.nc(nc.krig,"pm2p5","NC_FLOAT",c("longitude","latitude","time"))
-  att.put.nc(nc.krig,"pm2p5","units","NC_CHAR","ug m**-3")
-  att.put.nc(nc.krig,"pm2p5","long_name","NC_CHAR","Mass concentration of PM2.5 ambient aerosol particles in air")
-  att.put.nc(nc.krig,"pm2p5","standard_name","NC_CHAR","mass_concentration_of_pm2p5_ambient_aerosol_particles_in_air")
-  att.put.nc(nc.krig,"pm2p5","cell_methods","NC_CHAR","time: mean (interval: 15 minutes)")
-  att.put.nc(nc.krig,"pm2p5","missing_value","NC_FLOAT",-999.9)
-  
-  # Global attributes
-  att.put.nc(nc.krig,"NC_GLOBAL","title","NC_CHAR","PM2.5 interpolated surface (AutoKrige)")
-  att.put.nc(nc.krig,"NC_GLOBAL","Conventions","NC_CHAR","CF-1.7")
-  att.put.nc(nc.krig,"NC_GLOBAL","Institution","NC_CHAR","NIWA (National Institute of Water and Atmospheric Research, Auckland, New Zealand)")
-  att.put.nc(nc.krig,"NC_GLOBAL","project_id","NC_CHAR","CONA - 2019")
-  att.put.nc(nc.krig,"NC_GLOBAL","history","NC_CHAR",paste0(format(max(all_data.tavg$date),format = "%Y%m%d"),
-                                                            " Data generated and formatted"))
-  att.put.nc(nc.krig,"NC_GLOBAL","comment","NC_CHAR","Data for visualisation only")
-  
-  # Load data
-  var.put.nc(nc.krig,"latitude",lat_dim)
-  var.put.nc(nc.krig,"longitude",lon_dim)
-  var.put.nc(nc.krig,"time",as.numeric(tim_dim))
-  rast_data <- getValues(raster_cat_krig_LL)[,(1:length(tim_dim))]
-  dim(rast_data) <- c(length(lon_dim),
-                      length(lat_dim),
-                      length(tim_dim))
-  var.put.nc(nc.krig,"pm2p5",rast_data)
-  
-  # Close the file and save
-  close.nc(nc.krig)
-  
+  # print("Krig")
+  # # Write NetCDF files ####
+  # # IDW
+  # lat_dim <- unique(coordinates(raster_cat_krig_LL)[,2])
+  # lon_dim <- unique(coordinates(raster_cat_krig_LL)[,1])
+  # tim_dim <- all_dates[valid_dates ==1 ]
+  # nc.krig <- create.nc("odin_krig.nc")
+  # # Dimensions specifications
+  # dim.def.nc(nc.krig, "time", unlim=TRUE)
+  # dim.def.nc(nc.krig, "latitude",length(lat_dim))
+  # dim.def.nc(nc.krig, "longitude",length(lon_dim))
+  # # Variable specifications
+  # var.def.nc(nc.krig,"time","NC_INT","time")
+  # att.put.nc(nc.krig,"time","units","NC_CHAR","seconds since 1970-01-01 00:00:0.0")
+  # att.put.nc(nc.krig,"time","long_name","NC_CHAR","time")
+  # 
+  # var.def.nc(nc.krig,"latitude","NC_FLOAT","latitude")
+  # att.put.nc(nc.krig,"latitude","units","NC_CHAR","degrees_north")
+  # att.put.nc(nc.krig,"latitude","long_name","NC_CHAR","latitude")
+  # att.put.nc(nc.krig,"latitude","standard_name","NC_CHAR","latitude")
+  # 
+  # var.def.nc(nc.krig,"longitude","NC_FLOAT","longitude")
+  # att.put.nc(nc.krig,"longitude","units","NC_CHAR","degrees_east")
+  # att.put.nc(nc.krig,"longitude","long_name","NC_CHAR","longitude")
+  # att.put.nc(nc.krig,"longitude","standard_name","NC_CHAR","longitude")
+  # 
+  # var.def.nc(nc.krig,"pm2p5","NC_FLOAT",c("longitude","latitude","time"))
+  # att.put.nc(nc.krig,"pm2p5","units","NC_CHAR","ug m**-3")
+  # att.put.nc(nc.krig,"pm2p5","long_name","NC_CHAR","Mass concentration of PM2.5 ambient aerosol particles in air")
+  # att.put.nc(nc.krig,"pm2p5","standard_name","NC_CHAR","mass_concentration_of_pm2p5_ambient_aerosol_particles_in_air")
+  # att.put.nc(nc.krig,"pm2p5","cell_methods","NC_CHAR","time: mean (interval: 15 minutes)")
+  # att.put.nc(nc.krig,"pm2p5","missing_value","NC_FLOAT",-999.9)
+  # 
+  # # Global attributes
+  # att.put.nc(nc.krig,"NC_GLOBAL","title","NC_CHAR","PM2.5 interpolated surface (AutoKrige)")
+  # att.put.nc(nc.krig,"NC_GLOBAL","Conventions","NC_CHAR","CF-1.7")
+  # att.put.nc(nc.krig,"NC_GLOBAL","Institution","NC_CHAR","NIWA (National Institute of Water and Atmospheric Research, Auckland, New Zealand)")
+  # att.put.nc(nc.krig,"NC_GLOBAL","project_id","NC_CHAR","CONA - 2019")
+  # att.put.nc(nc.krig,"NC_GLOBAL","history","NC_CHAR",paste0(format(max(all_data.tavg$date),format = "%Y%m%d"),
+  #                                                           " Data generated and formatted"))
+  # att.put.nc(nc.krig,"NC_GLOBAL","comment","NC_CHAR","Data for visualisation only")
+  # 
+  # # Load data
+  # var.put.nc(nc.krig,"latitude",lat_dim)
+  # var.put.nc(nc.krig,"longitude",lon_dim)
+  # var.put.nc(nc.krig,"time",as.numeric(tim_dim))
+  # rast_data <- getValues(raster_cat_krig_LL)[,(1:length(tim_dim))]
+  # dim(rast_data) <- c(length(lon_dim),
+  #                     length(lat_dim),
+  #                     length(tim_dim))
+  # var.put.nc(nc.krig,"pm2p5",rast_data)
+  # 
+  # # Close the file and save
+  # close.nc(nc.krig)
+  # 
   print("IDW")
   # Write NetCDF files ####
   # IDW
@@ -750,15 +758,15 @@ if (location_ok){
   
   ## Create MP4 video ####
   print("Create videos")
-  system(paste0("ffmpeg -f image2 -r 6 -pattern_type glob -i '",
-                data_path,
-                "autokrig/",
-                "*.png' ",
-                data_path,
-                "autokrig/",
-                format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
-                format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
-                ".mp4"))
+  # system(paste0("ffmpeg -f image2 -r 6 -pattern_type glob -i '",
+  #               data_path,
+  #               "autokrig/",
+  #               "*.png' ",
+  #               data_path,
+  #               "autokrig/",
+  #               format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
+  #               format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
+  #               ".mp4"))
   
   system(paste0("ffmpeg -f image2 -r 6 -pattern_type glob -i '",
                 data_path,
@@ -795,17 +803,17 @@ if (location_ok){
                 format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
                 ".mp4 --playlist=\"Masterton 2020 - ODIN\""))
   
-  print("Upload Krige to youtube")
-  system(paste0("youtube-upload --title=\"Masterton ",
-                format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d %H:%M"),
-                " to ",
-                format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d %H:%M"),
-                " AutoKrige\" --privacy=unlisted --client-secrets=client_secrets.json ",
-                data_path,
-                "autokrig/",
-                format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
-                format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
-                ".mp4 --playlist=\"Masterton 2020 - ODIN - AutoKrige\""))
+  # print("Upload Krige to youtube")
+  # system(paste0("youtube-upload --title=\"Masterton ",
+  #               format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d %H:%M"),
+  #               " to ",
+  #               format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d %H:%M"),
+  #               " AutoKrige\" --privacy=unlisted --client-secrets=client_secrets.json ",
+  #               data_path,
+  #               "autokrig/",
+  #               format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),"_",
+  #               format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
+  #               ".mp4 --playlist=\"Masterton 2020 - ODIN - AutoKrige\""))
   
   # Upload files
   print("Upload NC files")
@@ -824,9 +832,9 @@ system(paste0("rm -rf ",
 system(paste0("rm -rf ",
               data_path,
               "idw2/*"))
-system(paste0("rm -rf ",
-              data_path,
-              "autokrig/*"))
+# system(paste0("rm -rf ",
+#               data_path,
+#               "autokrig/*"))
 system(paste0('rm -f ',
               data_path,
               'all_data',
@@ -844,8 +852,8 @@ system('mv *.tgz data_compressed/')
 system('mv t_series*.png timeseries/')
 system('mv availability*.png timeseries/')
 
-tweet_status <- updateStatus(paste(format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
-                                   "Masterton script finished OK:",
-                                   format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d")))
+# tweet_status <- updateStatus(paste(format(min(all_data.tavg$date) + 12*3600,format = "%Y%m%d"),
+#                                    "Masterton script finished OK:",
+#                                    format(max(all_data.tavg$date) + 12*3600,format = "%Y%m%d")))
 
 
